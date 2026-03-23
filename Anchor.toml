@@ -1,0 +1,42 @@
+describe("Pruebas EnerLedger", () => {
+  it("Inicializar Medidor", async () => {
+    // 1. Definimos el ID del medidor
+    const idFisico = "MEDIDOR-001";
+
+    // 2. Calculamos el PDA (Program Derived Address)
+    // Esto es lo que hace que tu proyecto sea nivel Pro
+    const [registroPda, bump] = await web3.PublicKey.findProgramAddress(
+      [Buffer.from("medidor"), Buffer.from(idFisico)],
+      pg.PROGRAM_ID
+    );
+
+    console.log("PDA del medidor calculado:", registroPda.toBase58());
+
+    // 3. Enviamos la transacción para inicializar
+    const txHash = await pg.program.methods
+      .inicializarMedidor(idFisico)
+      .accounts({
+        registroPda: registroPda,
+        autoridad: pg.wallet.publicKey,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    console.log("Transacción exitosa. Hash:", txHash);
+
+    // 4. Confirmamos y verificamos los datos en la blockchain
+    await pg.connection.confirmTransaction(txHash);
+
+    const cuenta = await pg.program.account.registroEnergia.fetch(registroPda);
+    
+    console.log("--- Datos en Blockchain ---");
+    console.log("ID Físico:", cuenta.idFisico);
+    console.log("Total kWh:", cuenta.totalKwh.toString());
+    console.log("Autoridad:", cuenta.autoridad.toBase58());
+
+    // Verificación final (Assert)
+    if (cuenta.idFisico === idFisico) {
+      console.log(" Test PASSED: El medidor se guardó correctamente.");
+    }
+  });
+});
